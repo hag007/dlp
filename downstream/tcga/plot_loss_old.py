@@ -308,14 +308,14 @@ if __name__=="__main__":
         1.0:lambda a: True
     }
 
-    fractions=[1.0] # [0.1, 0.33, 0.67,1.0] # , 0.1, 0.33, 0.67, 1.0]
+    fractions=[0.05]
     use_zs=[True] # , False]
-    models=  [constants.MODEL_VAE]
+    models=  [constants.MODEL_FULL]
 
     p=Pool(2)
     params=[]
-    max_epoch=50
-    epoch_checkpoint=100 # 300
+    max_epoch=2000
+    epoch_checkpoint=0 # 300
     for cur_use_z in use_zs:
         for cur_fraction in fractions:
             for model in models:

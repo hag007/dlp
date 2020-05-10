@@ -7,7 +7,7 @@ import torch
 
 from nn.models import Encoder, Decoder, Classifier
 import constants_tcga as constants
-from datasets import cmap_datasets
+from datasets import datasets
 import torch.optim as optim
 import numpy as np
 import copy
@@ -15,6 +15,15 @@ from multiprocessing import Pool
 
 from nn.tcga.flow_tcga import train_vae
 from plots.scatter_plot_test import plot
+
+filter_func_dict={
+        0.01:lambda a: True,
+        0.05:lambda a: a % 20 == 0,
+        0.1:lambda a: a % 10 == 0,
+        0.33:lambda a: a % 3 == 0,
+        0.67:lambda a: a % 3 > 0,
+        1.0:lambda a: True
+    }
 
 def main(model, use_z, fraction, max_epoch=300, epoch_checkpoint=0):
 
@@ -24,21 +33,18 @@ def main(model, use_z, fraction, max_epoch=300, epoch_checkpoint=0):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     torch.set_default_tensor_type('torch.cuda.FloatTensor')
 
-    genes=None
-    genes_name=None
-
-    dataset= cmap_datasets.CMAPDataset(genes, genes_name)
-    dataloader_ctor= cmap_datasets.CMAPDataLoader(dataset, 0.2, 0.2)
-    testloader = dataloader_ctor.test_loader()
-
-    dataset_mask= cmap_datasets.CMAPDatasetMask(genes, genes_name, filter_func)
-    dataloader_ctor_mask= cmap_datasets.CMAPDataLoader(dataset_mask, 0.2, 0, 2)
+    dataset_names=constants.ALL_DATASET_NAMES
+    dataset_mask= datasets.DatasetMask(dataset_names, constants.DATA_TYPE, filter_func)
+    dataloader_ctor_mask= datasets.DataLoader(dataset_mask, 0.2, 0, 2)
     trainloader = dataloader_ctor_mask.train_loader()
     validationloader = dataloader_ctor_mask.valid_loader()
 
+    dataset= datasets.Dataset(dataset_names, constants.DATA_TYPE)
+    dataloader_ctor= datasets.DataLoader(dataset, 0.2, 0.2)
+    testloader = dataloader_ctor.train_loader()
+
     encoder=Encoder(n_latent_layer=n_latent_layer)
     decoder=Decoder(n_latent_layer=n_latent_layer)
-    classifier=Classifier(n_latent_layer=n_latent_layer, n_classes=(len(constants.DATASETS_FILES) if genes_name is None else genes_name.count("_")+1))
 
     path_format_to_save=os.path.join(constants.CACHE_GLOBAL_DIR, constants.DATA_TYPE, "model_{}_{}_{}_{{}}".format(fraction,model,"z" if use_z else "mu"))
     PATH_ENCODER= os.path.join(path_format_to_save,"ENC_mdl")
@@ -54,7 +60,7 @@ def main(model, use_z, fraction, max_epoch=300, epoch_checkpoint=0):
         epoch_checkpoint=0
 
 
-    lr = 3e-4
+    lr = 1e-4
     parameters=list(encoder.parameters())+list(decoder.parameters())
     optimizer_vae = optim.Adam(parameters, lr=lr)
     log_interval=100
@@ -73,7 +79,6 @@ def main(model, use_z, fraction, max_epoch=300, epoch_checkpoint=0):
         if min_val_loss>sum([validation_loss[-1]]):
             min_encoder = copy.deepcopy(encoder)
             min_decoder = copy.deepcopy(decoder)
-            min_classifier = copy.deepcopy(classifier)
 
             min_epoch=cur_epoch
             min_val_loss=sum([validation_loss[-1]])
@@ -89,12 +94,12 @@ def main(model, use_z, fraction, max_epoch=300, epoch_checkpoint=0):
                 torch.save(min_encoder.state_dict(), PATH_ENCODER.format(cur_epoch)+"_min")
                 torch.save(min_decoder.state_dict(), PATH_DECODER.format(cur_epoch)+"_min")
                 open(os.path.join(path_format_to_save.format(cur_epoch), "min_epoch.txt"), "w").write("{}_{}".format(min_val_loss,min_epoch))
-                plot(min_encoder, testloader, device, "_min", path_format_to_save.format(cur_epoch))
+                plot(min_encoder, testloader, device, "_min", dataset_names, path_format_to_save.format(cur_epoch))
 
             torch.save(encoder.state_dict(), PATH_ENCODER.format(cur_epoch))
             torch.save(decoder.state_dict(), PATH_DECODER.format(cur_epoch))
 
-            plot(encoder, testloader, device, "", path_format_to_save.format(cur_epoch))
+            plot(encoder, testloader, device, "", dataset_names, path_format_to_save.format(cur_epoch))
 
             open(os.path.join(path_format_to_save.format(cur_epoch), "train_losses.txt"), "w").write("\n".join(train_losses[0]))
             open(os.path.join(path_format_to_save.format(cur_epoch), "val_losses.txt"), "w").write("\n".join(val_losses[0]))
@@ -102,14 +107,7 @@ def main(model, use_z, fraction, max_epoch=300, epoch_checkpoint=0):
             val_losses=[]
 
 if __name__=="__main__":
-    filter_func_dict={
-        0.01:lambda a: True,
-        0.05:lambda a: a % 20 == 0,
-        0.1:lambda a: a % 10 == 0,
-        0.33:lambda a: a % 3 == 0,
-        0.67:lambda a: a % 3 > 0,
-        1.0:lambda a: True
-    }
+
 
     fractions=[1.0]
     use_zs=[True]

@@ -7,7 +7,7 @@ matplotlib.use('Agg')
 import torch
 from torch import tensor
 
-import constants
+import constants_cmap
 import numpy as np
 from multiprocessing import Pool
 from sklearn.decomposition import PCA
@@ -46,18 +46,18 @@ def plot(model, test_loader, device, suffix, path_to_save):
 
 
     colormap = cm.jet
-    label_unique = np.arange(len(constants.DATASETS_NAMES))
+    label_unique = np.arange(len(constants_cmap.DATASETS_NAMES))
     colorlist_unique = [ml_colors.rgb2hex(colormap(a)) for a in
                     label_unique / float(max(labels))]
-    patches = [Line2D([0], [0], marker='o', color='gray', label=constants.DATASETS_NAMES[a],
-                  markerfacecolor=c) for a, c in zip(label_unique, colorlist_unique)]
+    patches = [Line2D([0], [0], marker='o', color='gray', label=constants_cmap.DATASETS_NAMES[a],
+                      markerfacecolor=c) for a, c in zip(label_unique, colorlist_unique)]
 
     for a in label_unique:
         plt.scatter([np.mean([xs[i] for i, b in enumerate(labels) if a==b])],[np.mean([ys[i] for i, b in enumerate(labels) if a==b])], s=2000, c=colorlist_unique[a], cmap='jet', alpha=0.5)
-        plt.annotate(constants.DATASETS_NAMES[a],
-                    xy=(np.mean([xs[i] for i, b in enumerate(labels) if a==b]), np.mean([ys[i] for i, b in enumerate(labels) if a==b])), xytext=(-20, 20), textcoords='offset points',
-                    bbox=dict(boxstyle='round,pad=0.5', fc='yellow', alpha=0.5),
-                    arrowprops=dict(facecolor='black', shrink=0.05, width=2, headwidth=3, headlength=2))
+        plt.annotate(constants_cmap.DATASETS_NAMES[a],
+                     xy=(np.mean([xs[i] for i, b in enumerate(labels) if a==b]), np.mean([ys[i] for i, b in enumerate(labels) if a==b])), xytext=(-20, 20), textcoords='offset points',
+                     bbox=dict(boxstyle='round,pad=0.5', fc='yellow', alpha=0.5),
+                     arrowprops=dict(facecolor='black', shrink=0.05, width=2, headwidth=3, headlength=2))
     plt.legend(handles=patches) # plt.legend(handles=[a for a in constants.PATCHES])
     plt.savefig(os.path.join(path_to_save, "zs_scatter{}.png".format(suffix)))
 
@@ -67,29 +67,29 @@ def main(model, use_z, fraction, max_epoch=300, epoch_checkpoint=0):
 
 
 
-    path_to_save_format=os.path.join(constants.CACHE_GLOBAL_DIR, constants.DATA_TYPE, "model_{}_{}_{}_{{}}".format(fraction,model,"z" if use_z else "mu"))
+    path_to_save_format=os.path.join(constants_cmap.CACHE_GLOBAL_DIR, constants_cmap.DATA_TYPE, "1000e", "model_{}_{}_{}_{{}}".format(fraction, model, "z" if use_z else "mu"))
 
     train_losses=[]
     valid_losses=[]
-    if model!=constants.MODEL_FULL:
+    if model!=constants_cmap.MODEL_FULL:
         train_file_name="train_losses.txt"
         val_file_name="val_losses.txt"
         fig,ax = plt.subplots()
-        path_to_plot=os.path.join(constants.OUTPUT_GLOBAL_DIR, "losses_{}_{}_{}_{}_{}.png".format(constants.DATA_TYPE, fraction,model,("z" if use_z else "mu"), max_epoch))
+        path_to_plot=os.path.join(constants_cmap.OUTPUT_GLOBAL_DIR, "losses_{}_{}_{}_{}_{}.png".format(constants_cmap.DATA_TYPE, fraction, model, ("z" if use_z else "mu"), max_epoch))
         plot_losses(ax, epoch_checkpoint, max_epoch, path_to_plot, path_to_save_format, train_file_name, train_losses,
                 val_file_name, valid_losses)
     else:
         fig,ax = plt.subplots()
         train_file_name="train_1_losses.txt"
         val_file_name="val_1_losses.txt"
-        path_to_plot=os.path.join(constants.OUTPUT_GLOBAL_DIR, "losses_{}_{}_{}_{}_{}_1.png".format(constants.DATA_TYPE, fraction,model,("z" if use_z else "mu"), max_epoch))
+        path_to_plot=os.path.join(constants_cmap.OUTPUT_GLOBAL_DIR, "losses_{}_{}_{}_{}_{}_1.png".format(constants_cmap.DATA_TYPE, fraction, model, ("z" if use_z else "mu"), max_epoch))
         plot_losses(ax, epoch_checkpoint, max_epoch, path_to_plot, path_to_save_format, train_file_name, train_losses,
                 val_file_name, valid_losses)
 
         fig,ax = plt.subplots()
         train_file_name="train_2_losses.txt"
         val_file_name="val_2_losses.txt"
-        path_to_plot=os.path.join(constants.OUTPUT_GLOBAL_DIR, "losses_{}_{}_{}_{}_{}_2.png".format(constants.DATA_TYPE, fraction,model,("z" if use_z else "mu"), max_epoch))
+        path_to_plot=os.path.join(constants_cmap.OUTPUT_GLOBAL_DIR, "losses_{}_{}_{}_{}_{}_2.png".format(constants_cmap.DATA_TYPE, fraction, model, ("z" if use_z else "mu"), max_epoch))
         plot_losses(ax, epoch_checkpoint, max_epoch, path_to_plot, path_to_save_format, train_file_name, train_losses,
                 val_file_name, valid_losses)
 
@@ -126,13 +126,13 @@ if __name__=="__main__":
         1.0:lambda a: True
     }
 
-    fractions=[0.01, 0.05] # , 0.1, 0.2] # , 0.1, 0.33, 0.67, 1.0]
+    fractions=[0.0] # , 0.1, 0.2] # , 0.1, 0.33, 0.67, 1.0]
     use_zs=[True] # , False]
-    models= [ constants.MODEL_FULL, constants.MODEL_CLS, constants.MODEL_VAE]
+    models= [constants_cmap.MODEL_FULL] # [ constants.MODEL_FULL, constants.MODEL_CLS, constants.MODEL_VAE]
 
     p=Pool(2)
     params=[]
-    max_epoch=2000
+    max_epoch=1000
     epoch_checkpoint=0 # 300
     for cur_use_z in use_zs:
         for cur_fraction in fractions:

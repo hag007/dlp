@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 matplotlib.use('Agg')
 
-import constants_cmap
+import  constants_tcga as constants
 from sklearn.manifold import TSNE
 from sklearn.decomposition import PCA
 from datasets import datasets
@@ -19,7 +19,7 @@ import numpy as np
 from sklearn.neighbors import KNeighborsClassifier
 
 def knn(X_train,y_train, X_test, y_test):
-    neigh = KNeighborsClassifier(n_neighbors=5)
+    neigh = KNeighborsClassifier(n_neighbors=10)
     neigh.fit(X_train, y_train)
     score=neigh.score(X_test, y_test)
     print(score)
@@ -28,45 +28,59 @@ def knn(X_train,y_train, X_test, y_test):
 
 def main():
     print("start script...")
-    dataset_names=[a for i, a in enumerate(constants_cmap.DATASETS_NAMES) if constants_cmap.DATASETS_INCLUDED[i]]
-    dataset= datasets.Dataset(dataset_names=dataset_names, data_type=constants_cmap.DATA_TYPE)
+    dataset_names_tcga=constants.ALL_DATASET_NAMES
+    dataset= datasets.Dataset(dataset_names=dataset_names_tcga, data_type="tcga")
     dataloader_ctor= datasets.DataLoader(dataset, 0.2, 0.2)
     trainloader = dataloader_ctor.train_loader()
-    testloader = dataloader_ctor.test_loader()
+
+    dataset_names_icgc=constants.ICGC_ALL_DATASET_NAMES
+
+    dataset= datasets.Dataset(dataset_names=dataset_names_icgc, data_type="icgc")
+    dataloader_ctor= datasets.DataLoader(dataset, 0.0, 0.0)
+    testloader = dataloader_ctor.train_loader()
+
+    dataset_names=dataset_names_tcga+dataset_names_icgc
 
 
-    datas=tensor([])
-    labels=tensor([]).long()
 
-
+    datas_tcga=tensor([])
+    labels_tcga=tensor([]).long()
     for batch_idx, (data, label) in enumerate(trainloader):
-        datas=torch.cat((datas, data), 0)
-        labels=torch.cat((labels, label), 0)
-    n_samples_train=datas.shape[0]
-    n_tcga_unique_labels=len(dataset_names)
+        datas_tcga=torch.cat((datas_tcga, data), 0)
+        labels_tcga=torch.cat((labels_tcga, label), 0)
 
+    n_tcga_unique_labels=len(dataset_names_tcga)
+
+    datas_icgc=tensor([])
+    labels_icgc=tensor([]).long()
     for batch_idx, (data, label) in enumerate(testloader):
-        datas=torch.cat((datas, data), 0)
-        labels=torch.cat((labels, label), 0)
+        datas_icgc=torch.cat((datas_icgc, data), 0)
+        labels_icgc=torch.cat((labels_icgc, n_tcga_unique_labels+label), 0)
 
 
-    datas=datas.cpu().numpy()
-    labels=labels.cpu().numpy()
+    datas_tcga=datas_tcga.cpu().numpy()
+    labels_tcga=labels_tcga.cpu().numpy()
+    datas_icgc=datas_icgc.cpu().numpy()
+    labels_icgc=labels_icgc.cpu().numpy()
 
     n_components=2
     print("start pca...")
-    X_pca = PCA(n_components=1000).fit_transform(datas)
+    pca = PCA(n_components=2).fit(datas_tcga)
+    X_tcga=pca.transform(datas_tcga)
+    X_icgc=pca.transform(datas_icgc)
     print("start tsne...")
-    X =  TSNE(n_components=n_components, metric="euclidean", perplexity=15.0).fit_transform(X_pca)
-    X_train=X_pca[:n_samples_train]
-    X_test= X_pca[n_samples_train:]
-    y_train=labels[:n_samples_train]
-    y_test= labels[n_samples_train:]
+    X_train=X_tcga
+    X_test= X_icgc
+    y_train=labels_tcga
+    y_test=[constants.ICGC_PSEUDO_LABELS[constants.ICGC_DATASETS_NAMES[a-n_tcga_unique_labels]] for a in labels_icgc]
     knn(X_train,y_train, X_test, y_test)
     fig = plt.figure(1, figsize=(20, 20))
     ax = fig.add_subplot(111)
+
+    X=np.vstack([X_train,X_test])
     xs=X[:, 0]
     ys=X[:, 1]
+    labels=np.hstack([labels_tcga,labels_icgc])
     ax.scatter(xs, ys, c=labels)
     colormap = cm.jet
     plt.scatter(xs,ys, c=[a for a in labels], cmap=colormap) # sns.color_palette("Paired", n_colors=len(constants.DATASETS_INCLUDED))[a]
@@ -88,7 +102,7 @@ def main():
     plt.legend(handles=patches)
 
 
-    plt.savefig(os.path.join(constants_cmap.OUTPUT_GLOBAL_DIR, "tnse.png"))
+    plt.savefig(os.path.join(constants.OUTPUT_GLOBAL_DIR, "pca_icgc.png"))
 
 if __name__=='__main__':
     main()

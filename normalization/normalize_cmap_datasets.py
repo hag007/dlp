@@ -5,19 +5,19 @@ from torch import tensor
 import pandas as pd
 import os
 from torch.utils.data.sampler import SubsetRandomSampler
-import constants
+import constants_cmap
 from scipy.stats import zscore, rankdata
 import shutil
 
 
-dataset_names=[a for i, a in enumerate(constants.DATASETS_NAMES)]
-dataset_files=[a for i, a in enumerate(constants.DATASETS_FILES)]
-dataset_f=[a for i, a in enumerate(constants.DATASETS_F)]
-dataset_f_names=[a for i, a in enumerate(constants.DATASETS_F_NAMES)]
+dataset_names=[a for i, a in enumerate(constants_cmap.DATASETS_NAMES)]
+dataset_files=[a for i, a in enumerate(constants_cmap.DATASETS_FILES)]
+dataset_f=[a for i, a in enumerate(constants_cmap.DATASETS_F)]
+dataset_f_names=[a for i, a in enumerate(constants_cmap.DATASETS_F_NAMES)]
 
-path_to_cache=os.path.join(constants.CACHE_GLOBAL_DIR, "datasets", "cmap")
+path_to_cache=os.path.join(constants_cmap.CACHE_GLOBAL_DIR, "datasets", "cmap")
 
-all_datasets=[pd.read_csv(os.path.join(constants.DATASETS_DIR, ds), sep='\t', index_col=0).T.drop(
+all_datasets=[pd.read_csv(os.path.join(constants_cmap.DATASETS_DIR, ds), sep='\t', index_col=0).T.drop(
         ["pr_gene_symbol", "pr_gene_symbol.1"]) for ds in dataset_files]
 
 df_X_all = pd.concat(all_datasets, axis=0).astype(np.float)

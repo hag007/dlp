@@ -51,7 +51,7 @@ class Encoder(nn.Module):
     def forward(self, x):
         mu, logvar = self.encode(x)
         z = self.reparameterize(mu, logvar)
-        return z, mu, logvar
+        return z, mu, logvar, z
 
 
 class Decoder(nn.Module):
@@ -89,33 +89,73 @@ class Decoder(nn.Module):
         decoded = self.decode(z)
         return decoded, z, mu, logvar
 
+
 class Classifier(nn.Module):
 
-    def __init__(self, factor=1.0, n_latent_layer=100,
-                 n_classes=100, n_reduction_layers=2):
+    def __init__(self, factor=1.0, n_input_layer=100,
+                 n_classes=100, n_layers=2, n_reduction_layer=2, is_z=True):
         super(Classifier, self).__init__()
-        self.n_reduction_layers = n_reduction_layers
+        self.n_reduction_layers = n_layers
         self.n_classes = n_classes
-        self.n_latent_layer=n_latent_layer
+        self.n_latent_layer=n_input_layer *(1 if is_z else 2)
+        self.is_z=is_z
 
-        for cur in np.arange(1, n_reduction_layers + 1):
+        for cur in np.arange(1, n_layers + 1):
             setattr(self, "fc_cls" + str(cur),
-                    nn.Linear(int(n_latent_layer * factor ** (cur - 1)), int(n_latent_layer * factor ** cur)))
-            setattr(self, "fc_bn_cls" + str(cur), nn.BatchNorm1d(int(n_latent_layer * factor ** cur)))
+                    nn.Linear(int(n_input_layer * factor ** (cur - 1)), int(n_input_layer * factor ** cur)))
+            setattr(self, "fc_bn_cls" + str(cur), nn.BatchNorm1d(int(n_input_layer * factor ** cur)))
 
-        self.fc_cls_out = nn.Linear(int(n_latent_layer * factor ** n_reduction_layers), n_classes)
 
-    def classify(self, z):
-        h = z
+
+
+        setattr(self, "fc_cls_reduction",
+                nn.Linear(int(n_input_layer * factor ** (cur)), n_reduction_layer))
+        setattr(self, "fc_bn_cls_reduction", nn.BatchNorm1d(n_reduction_layer))
+
+        self.fc_cls_out = nn.Linear(n_reduction_layer, n_classes)
+
+    def classify(self, mu_logvar):
+        h = mu_logvar
         for cur in np.arange(1, self.n_reduction_layers + 1):
             h = getattr(self, "fc_bn_cls" + str(cur))(F.relu(getattr(self, "fc_cls" + str(cur))(h)))
 
+        h = getattr(self, "fc_bn_cls_reduction")(F.relu(getattr(self, "fc_cls_reduction")(h)))
+
         cls = self.fc_cls_out(h)
-        return cls
+        return cls , h
 
     def forward(self, input):
-        z = input
 
-        labels_hat = self.classify(z)
-        return labels_hat, z
+        if type(input) is tuple:
+            z, mu , logvar, _  = input
+            z=torch.cat((mu,logvar), dim=1)
+        else:
+            z = input
+
+        dummy=torch.Tensor([])
+        labels_hat, reduction_layer = self.classify(z)
+        return labels_hat, dummy, dummy, reduction_layer
+
+        self.fc_cls_out = nn.Linear(n_reduction_layer, n_classes)
+
+    def classify(self, mu_logvar):
+        h = mu_logvar
+        for cur in np.arange(1, self.n_reduction_layers + 1):
+            h = getattr(self, "fc_bn_cls" + str(cur))(F.relu(getattr(self, "fc_cls" + str(cur))(h)))
+
+        h = getattr(self, "fc_bn_cls_reduction")(F.relu(getattr(self, "fc_cls_reduction")(h)))
+
+        cls = self.fc_cls_out(h)
+        return cls , h
+
+    def forward(self, input):
+
+        if type(input) is tuple:
+            z, mu , logvar, _  = input
+            input= z if self.is_z else torch.cat((mu,logvar), dim=1)
+
+
+        dummy=torch.Tensor([])
+        labels_hat, reduction_layer = self.classify(input)
+        return labels_hat, input, dummy, (input if self.is_z else reduction_layer)
 

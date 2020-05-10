@@ -9,7 +9,7 @@ from torch.nn import functional as F
 from torch import tensor
 
 from nn.models import Encoder, Decoder, Classifier
-import constants_cmap
+import constants_tcga as constants
 from datasets import datasets
 import torch.optim as optim
 import numpy as np
@@ -35,44 +35,6 @@ def loss_f_cls(labels_hat, labels, mask, epoch, factor):
 
     return CE * factor# *torch.sum(mask)/float(mask.shape[0])
 
-
-def plot(model, test_loader, device, suffix, path_to_save):
-    zs=tensor([])
-    mus=tensor([])
-    logvars=tensor([])
-    labels=tensor([]).long()
-    reds=tensor([])
-    with torch.no_grad():
-        for batch_idx, (data, label) in enumerate(test_loader):
-            data = data.to(device)
-            z, mu, logvar, red = model(data)
-            zs=torch.cat((zs, z), 0)
-            mus=torch.cat((mus, mu), 0)
-            logvars=torch.cat((logvars, logvar), 0)
-            labels=torch.cat((labels, label), 0)
-            reds=torch.cat((reds, red), 0)
-
-
-    # zs=zs.detach().cpu().numpy()
-    # xs,ys=list(zip(*zs))
-    # plt.subplots(figsize=(20,20))
-    # plt.scatter(xs,ys, c=[sns.color_palette("Paired", n_colors=len(constants.DATASETS_INCLUDED))[a] for a in labels.cpu().numpy()])
-    # plt.legend(handles=[a for a in constants.PATCHES])
-    # plt.savefig(os.path.join(path_to_save, "zs_scatter{}.png".format(suffix)))
-
-        # xs,ys=list(zip(*zs.cpu().numpy()))
-    reds=reds.cpu().numpy()
-    labels=labels.cpu().numpy()
-    reds[np.isneginf(reds)]=-1000000000
-    reds[np.isposinf(reds)]=1000000000
-
-    xs,ys=list(zip(*reds))
-    plt.subplots(figsize=(20,20))
-    plt.scatter(xs, ys, c=[constants_cmap.DATASETS_COLORS[constants_cmap.DATASETS_NAMES.index(test_loader.dataset.y_unique_names[a])] for a in labels])
-
-    patches = constants_cmap.PATCHES
-    plt.legend(handles=patches)
-    plt.savefig(os.path.join(path_to_save, "zs_scatter{}.png".format(suffix)))
 
 def train_full(epoch, encoder, decoder, classifier, factor_vae, factor_cls, optimizer_vae, optimizer_cls, train_loader, validation_loader, device, log_interval):
 
